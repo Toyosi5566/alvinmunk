@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Star, Target, Coins, Activity } from 'lucide-react';
+import { Home, Star, Target, Coins, Activity, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { FOCUS_MODE } from '@/lib/focus';
 
@@ -20,6 +20,7 @@ const TABS = [
   { href: '/app/quests', label: 'Quests', icon: Target, exact: false, cashable: true },
   { href: '/app/rewards', label: 'Rewards', icon: Coins, exact: false, cashable: true },
   { href: '/app/activity', label: 'Activity', icon: Activity, exact: false, cashable: false },
+  { href: '/app/people', label: 'People', icon: Users, exact: false, cashable: false },
 ];
 
 export function AppTabs() {
