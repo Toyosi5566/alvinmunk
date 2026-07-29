@@ -36,3 +36,4 @@ coverage/
 
 # Soroban auto-generated test snapshots (regenerable)
 contracts/*/test_snapshots/
+.idea
