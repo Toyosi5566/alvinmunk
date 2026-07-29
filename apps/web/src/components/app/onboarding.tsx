@@ -8,6 +8,7 @@ import { claimHandle, isHandleAvailable } from '@/lib/registry';
 import { normalizeHandle, type Profile } from '@/lib/profile';
 import { humanizeError } from '@/lib/utils';
 import { track, identify, trackError } from '@/lib/track';
+import { useTranslations } from '@/lib/i18n';
 import { Crest } from '@/components/brand/crest';
 import { AvatarPicker } from '@/components/AvatarPicker';
 import { type FaceId } from '@/lib/avatar';
@@ -15,17 +16,12 @@ import { asset } from '@/lib/assets';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-/**
- * Onboarding — the no-profile state of the app. Pick a handle + a face and we silently
- * provision a testnet wallet, fund it, write the genesis tx, and stamp the handle on-chain.
- * No "connect wallet", no "mint", no seed phrase.
- */
 export function Onboarding() {
+  const t = useTranslations();
   const { connect, setProfile } = useWallet();
   const [handle, setHandle] = useState('');
   const [creating, setCreating] = useState(false);
   const [face, setFace] = useState<FaceId | undefined>();
-  // Live availability so the user learns "taken" while typing, not after a 2s submit.
   const [avail, setAvail] = useState<'idle' | 'checking' | 'free' | 'taken'>('idle');
 
   useEffect(() => {
@@ -36,36 +32,32 @@ export function Onboarding() {
     }
     setAvail('checking');
     let alive = true;
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       isHandleAvailable(h)
         .then((free) => alive && setAvail(free ? 'free' : 'taken'))
         .catch(() => alive && setAvail('idle'));
     }, 400);
     return () => {
       alive = false;
-      clearTimeout(t);
+      clearTimeout(timer);
     };
   }, [handle]);
 
   async function createProfile() {
     const h = normalizeHandle(handle);
     if (h.length < 3) {
-      toast.error('Pick a handle — 3+ letters or numbers.');
+      toast.error(t('onboard.app.errShort'));
       return;
     }
     setCreating(true);
     try {
       const w = await connect();
-      // The handle becomes your PUBLIC profile ID, so it must be free on-chain.
       if (!(await isHandleAvailable(h))) {
-        toast.error(`@${h} is taken — pick another.`);
+        toast.error(t('onboard.app.errTaken', { handle: h }));
         return;
       }
-      // Genesis is a classic manageData op (needs a G… source) — passkey smart accounts
-      // (C…) can't author it, so we skip it there; the registry claim below IS the
-      // on-chain identity binding for every wallet kind.
       const tx = w.kind === 'passkey' ? undefined : await recordGenesis(w, h);
-      await claimHandle(w, h); // stamp the handle to chain (registry)
+      await claimHandle(w, h);
       const p: Profile = {
         handle: h,
         address: w.address,
@@ -76,9 +68,8 @@ export function Onboarding() {
       setProfile(p);
       identify(w.address, { handle: h, walletKind: w.kind });
       track('profile_created', { walletKind: w.kind });
-      toast.success(`Your profile is live — @${h} stamped on-chain.`);
+      toast.success(t('onboard.app.success', { handle: h }));
     } catch (e) {
-      // Surface the FULL error (diagnostic events name the failing contract/value).
       console.error('🛑 createProfile failed →', e);
       trackError(e, { flow: 'create_profile' });
       toast.error(humanizeError(e));
@@ -95,17 +86,17 @@ export function Onboarding() {
         style={{ backgroundImage: `url(${asset('backgrounds/app-bg.png')})`, backgroundSize: 'cover', backgroundPosition: 'top' }}
       />
       <div className="text-center">
-        <p className="eyebrow mb-3">Step 1 of 1</p>
-        <h1 className="text-3xl font-semibold">Create your profile</h1>
+        <p className="eyebrow mb-3">{t('onboard.app.eyebrow')}</p>
+        <h1 className="text-3xl font-semibold">{t('onboard.app.title')}</h1>
         <p className="mx-auto mt-2 max-w-xs text-sm text-muted-foreground text-balance">
-          Pick a handle — we set everything up for you. Your first star is one tap away.
+          {t('onboard.app.subtitle')}
         </p>
       </div>
 
       <Crest address={handle ? `profile-${handle}` : 'new-profile'} size={160} points={6} animate />
 
       <div className="flex flex-col items-center gap-2">
-        <p className="text-xs font-medium text-muted-foreground">Pick your face</p>
+        <p className="text-xs font-medium text-muted-foreground">{t('onboard.app.pickFace')}</p>
         <AvatarPicker value={face} onChange={setFace} size={48} />
       </div>
 
@@ -120,23 +111,23 @@ export function Onboarding() {
           autoFocus
           value={handle}
           onChange={(e) => setHandle(e.target.value)}
-          placeholder="your handle"
+          placeholder={t('onboard.app.placeholder')}
           className="text-center"
-          aria-label="Handle"
+          aria-label={t('onboard.app.ariaLabel')}
           aria-describedby="handle-status"
         />
         <p id="handle-status" aria-live="polite" className="h-4 text-xs">
-          {avail === 'checking' && <span className="text-muted-foreground">Checking…</span>}
-          {avail === 'free' && <span className="text-secondary">✓ @{normalizeHandle(handle)} is free</span>}
-          {avail === 'taken' && <span className="text-destructive">@{normalizeHandle(handle)} is taken — try another</span>}
+          {avail === 'checking' && <span className="text-muted-foreground">{t('onboard.app.checking')}</span>}
+          {avail === 'free' && <span className="text-secondary">{t('onboard.app.handleFree', { handle: normalizeHandle(handle) })}</span>}
+          {avail === 'taken' && <span className="text-destructive">{t('onboard.app.handleTaken', { handle: normalizeHandle(handle) })}</span>}
         </p>
         <Button type="submit" size="lg" disabled={creating || avail === 'taken'} className="w-full">
-          {creating ? 'Creating your profile…' : 'Create my profile'}
+          {creating ? t('onboard.app.submitting') : t('onboard.app.submit')}
         </Button>
       </form>
 
       <p className="text-center text-xs text-muted-foreground text-balance">
-        Saved on this device · fees sponsored on testnet · no seed phrase.
+        {t('onboard.app.footer')}
       </p>
     </div>
   );

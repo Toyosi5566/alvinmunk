@@ -6,19 +6,21 @@ import { usePathname } from 'next/navigation';
 import { Menu, X } from 'lucide-react';
 import { Logo } from '@/components/brand/logo';
 import { ConnectButton } from '@/components/wallet/connect-button';
+import { useTranslations } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
-const LINKS = [
-  { href: '/how-it-works', label: 'How it works' },
-  { href: '/leaderboard', label: 'Leaderboard' },
-  { href: '/stats', label: 'Stats' },
-  { href: '/wallet', label: 'Wallet' },
-];
-
 export function Navbar() {
+  const t = useTranslations();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+
+  const LINKS = [
+    { href: '/how-it-works', label: t('nav.howItWorks') },
+    { href: '/leaderboard', label: t('nav.leaderboard') },
+    { href: '/stats', label: t('nav.stats') },
+    { href: '/wallet', label: t('nav.wallet') },
+  ];
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -61,7 +63,7 @@ export function Navbar() {
           </div>
           <button
             className="inline-flex size-10 items-center justify-center rounded-full text-foreground md:hidden"
-            aria-label={open ? 'Close menu' : 'Open menu'}
+            aria-label={open ? t('nav.closeMenu') : t('nav.openMenu')}
             onClick={() => setOpen((v) => !v)}
           >
             {open ? <X className="size-5" /> : <Menu className="size-5" />}

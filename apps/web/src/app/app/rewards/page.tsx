@@ -7,13 +7,10 @@ import { FOCUS_MODE } from '@/lib/focus';
 import { Tip } from '@/components/Tip';
 import { Rewards } from '@/components/Rewards';
 import { Unlockables } from '@/components/Unlockables';
+import { useTranslations } from '@/lib/i18n';
 
-/**
- * Rewards — the spend + capability surface. Send USDC tips, claim rank rewards (gated by
- * Earned XP), and unlock reputation-gated perks. This is where reputation becomes spendable.
- * Hidden under FOCUS_MODE (belts/08) — direct hits bounce back to Home.
- */
 export default function RewardsPage() {
+  const t = useTranslations();
   const router = useRouter();
   const { profile } = useWallet();
   useEffect(() => {
@@ -24,25 +21,24 @@ export default function RewardsPage() {
   return (
     <div className="grid gap-8">
       <header>
-        <h1 className="font-display text-2xl font-semibold">Spend your reputation</h1>
+        <h1 className="font-display text-2xl font-semibold">{t('rewards.page.title')}</h1>
         <p className="mt-1 max-w-prose text-sm text-muted-foreground text-balance">
-          Tip anyone in USDC, claim rank rewards once your Earned XP clears the bar, and unlock
-          perks gated by your standing.
+          {t('rewards.page.subtitle')}
         </p>
       </header>
 
       <section className="grid gap-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Send</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t('rewards.page.send')}</h2>
         <Tip address={profile.address} />
       </section>
 
       <section className="grid gap-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Claim</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t('rewards.page.claim')}</h2>
         <Rewards address={profile.address} />
       </section>
 
       <section className="grid gap-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Unlock</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t('rewards.page.unlock')}</h2>
         <Unlockables address={profile.address} />
       </section>
     </div>

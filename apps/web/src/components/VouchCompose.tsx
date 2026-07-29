@@ -13,22 +13,22 @@ import { Textarea } from '@/components/ui/textarea';
 import { StateArt } from '@/components/ui/state-art';
 import { Sticker } from '@/components/ui/sticker';
 import { humanizeError } from '@/lib/utils';
+import { useTranslations } from '@/lib/i18n';
 import { track, trackError } from '@/lib/track';
 import { toast } from '@/components/ui/toaster';
 
 // Reputation contract error codes that can surface on mint_vouch (mirrors the Error enum).
-const VOUCH_ERRORS: Record<number, string> = {
-  6: 'You can’t vouch for yourself.',
-  9: 'You’ve hit today’s vouch limit — try again tomorrow.',
-  11: 'You need a little more Social XP to stake this vouch.',
-};
+// Keys map to i18n keys so they're translated too.
+function buildVouchErrors(t: (key: string) => string): Record<number, string> {
+  return {
+    6: t('vouch.error.self'),
+    9: t('vouch.error.limit'),
+    11: t('vouch.error.xp'),
+  };
+}
 
-/**
- * Vouch compose — the async half-card mint. You write one line and get a shareable link
- * bound to a claim-secret; no recipient address needed (cold-start fix). Whoever opens
- * the link claims it and their star ignites.
- */
 export function VouchCompose() {
+  const t = useTranslations();
   const [note, setNote] = useState('');
   const [link, setLink] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -43,16 +43,13 @@ export function VouchCompose() {
       const wallet = await getWallet();
       const noteText = note.trim() || 'vouched for you';
       const { id, secret } = await mintVouch(wallet, noteText);
-      // remember it locally so the dashboard can resurface it if it stays unclaimed
       addMyVouch({ id, secret, note: noteText, created: Math.floor(Date.now() / 1000) });
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      // The claim-secret rides in the URL fragment (#s=…), which browsers NEVER send to
-      // the server — so it can't leak into access logs, the Referer header, or analytics.
       setLink(`${buildClaimUrl(origin, id)}#s=${secret}`);
       track('vouch_minted', { hasNote: note.trim().length > 0, walletKind: wallet.kind });
-      toast.success('Their star is lit — share the link to send it ✨');
+      toast.success(t('vouch.compose.toast.success'));
     } catch (e) {
-      const msg = humanizeError(e, VOUCH_ERRORS);
+      const msg = humanizeError(e, buildVouchErrors(t));
       trackError(e, { flow: 'vouch_mint' });
       setError(msg);
       toast.error(msg);
@@ -68,16 +65,19 @@ export function VouchCompose() {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      setError('Couldn’t copy — select the link and copy it manually.');
+      setError(t('vouch.compose.copyFail'));
     }
   }
 
-  // Native share sheet on mobile (the most viral moment) — falls back to copy elsewhere.
   async function share() {
     if (!link) return;
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
-        await navigator.share({ title: 'A star for you', text: note.trim() || undefined, url: link });
+        await navigator.share({
+          title: t('vouch.compose.shareTitle'),
+          text: note.trim() || undefined,
+          url: link,
+        });
         return;
       } catch {
         /* user dismissed the sheet — no-op */
@@ -89,23 +89,23 @@ export function VouchCompose() {
   const canNativeShare = typeof navigator !== 'undefined' && 'share' in navigator;
 
   return (
-    <Frame label="vouch // mint" index="01" tape="tl">
+    <Frame label={t('vouch.compose.frame')} index="01" tape="tl">
       <div className="p-5">
-        <h2 className="text-base font-semibold">Vouch for someone you trust</h2>
+        <h2 className="text-base font-semibold">{t('vouch.compose.title')}</h2>
         <p className="mb-3 mt-1 text-sm text-muted-foreground">
-          Why them? One line. No address needed — share the link, their star ignites.
+          {t('vouch.compose.subtitle')}
         </p>
         <Textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
           maxLength={60}
           rows={2}
-          placeholder="unblocked me at 2am"
+          placeholder={t('vouch.compose.placeholder')}
           className="mb-3"
         />
         <div className="relative w-full overflow-hidden rounded-full">
           <Button variant="flow" onClick={onMint} disabled={busy} className="w-full">
-            {busy ? 'Lighting their star…' : 'Light their star'}
+            {busy ? t('vouch.compose.buttonBusy') : t('vouch.compose.button')}
           </Button>
           {!busy && <BorderBeam size={56} duration={6} colorTo="hsl(var(--tertiary))" />}
         </div>
@@ -114,33 +114,33 @@ export function VouchCompose() {
           <div className="mt-3 rounded-xl border border-secondary/30 bg-secondary/10 p-3">
             <div className="mb-2 flex items-center gap-3">
               <StateArt kind="vouch-sent" size={92} className="shrink-0 motion-safe:animate-ignite" />
-              <p className="text-sm font-medium text-foreground">Their star is lit — now send it.</p>
+              <p className="text-sm font-medium text-foreground">{t('vouch.compose.sent.msg')}</p>
             </div>
             <p className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
               <Sticker name="doodle-arrow" size={22} className="h-4 w-auto" />
-              Share their half of the sky:
+              {t('vouch.compose.sent.shareLabel')}
             </p>
             <div className="flex items-center gap-2">
               <code className="flex-1 truncate font-mono text-xs text-secondary">{link}</code>
-              <Button variant="secondary" size="icon" onClick={copy} aria-label="Copy link">
+              <Button variant="secondary" size="icon" onClick={copy} aria-label={t('vouch.compose.copy')}>
                 {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
               </Button>
               {canNativeShare && (
-                <Button variant="flow" size="icon" onClick={share} aria-label="Share link">
+                <Button variant="flow" size="icon" onClick={share} aria-label={t('vouch.compose.share')}>
                   <Share2 className="size-4" />
                 </Button>
               )}
             </div>
             <a
               href={`https://twitter.com/intent/tweet?${new URLSearchParams({
-                text: `${note.trim() || 'I lit a star for someone'} — claim your half of the sky:`,
+                text: `${note.trim() || t('vouch.compose.shareXText')} — claim your half of the sky:`,
                 url: link,
               }).toString()}`}
               target="_blank"
               rel="noreferrer"
               className="mt-2 inline-block font-mono text-[10px] uppercase tracking-wider text-tertiary hover:underline"
             >
-              share_on_x →
+              {t('vouch.compose.shareOnX')}
             </a>
           </div>
         )}

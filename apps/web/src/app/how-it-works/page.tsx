@@ -1,4 +1,9 @@
-import type { Metadata } from 'next';
+// Note: 'use client' means metadata must be defined in a parent layout or a separate
+// metadata export file. The title/description for this route are set in the root layout
+// template ('%s · alvinmunk') — "How it works" becomes "How it works · alvinmunk".
+
+'use client';
+
 import Link from 'next/link';
 import { Frame } from '@/components/fx/frame';
 import { Stamp } from '@/components/fx/stamp';
@@ -6,46 +11,56 @@ import { LoopScroll } from '@/components/fx/loop-scroll';
 import { BorderBeam } from '@/components/fx/border-beam';
 import { Sticker } from '@/components/ui/sticker';
 import { buttonVariants } from '@/components/ui/button';
+import { useTranslations } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
-export const metadata: Metadata = {
-  title: 'How it works',
-  description: 'The vouch loop, the two-track model, and our honest anti-sybil design.',
-};
+/** Renders `raw` with `highlight` wrapped in a <strong> — for bolding inline XP labels. */
+function SplitHighlight({ raw, highlight }: { raw: string; highlight: string }) {
+  const parts = raw.split(highlight);
+  if (parts.length < 2) return <>{raw}</>;
+  return (
+    <>
+      {parts[0]}
+      <strong className="text-foreground">{highlight}</strong>
+      {parts[1]}
+    </>
+  );
+}
 
-const LIMITS = [
-  { id: 'LIM-01', t: 'First-pair-only', d: 'A repeated A→B vouch mints the card but grants 0 extra XP — no back-and-forth pumping.' },
-  { id: 'LIM-02', t: 'Daily cap', d: 'A wallet can only mint so many vouches per day (on-chain counter).' },
-  { id: 'LIM-03', t: 'Two-track split', d: 'Vouches earn clout, not cash. Only verified quests touch the treasury.' },
-  { id: 'LIM-04', t: 'Ring detection', d: 'Reciprocal rings (A↔B) are flagged off-chain and can be frozen.' },
-  { id: 'LIM-05', t: 'Circuit breaker', d: 'A per-reward amount + a global daily cap bound every payout.' },
-  { id: 'LIM-06', t: 'Proof-of-funding', d: 'On mainnet, a wallet must have received external value before it can cash out.' },
+const LIMIT_KEYS = [
+  { id: 'LIM-01', tKey: 'howItWorks.lim01.t', dKey: 'howItWorks.lim01.d' },
+  { id: 'LIM-02', tKey: 'howItWorks.lim02.t', dKey: 'howItWorks.lim02.d' },
+  { id: 'LIM-03', tKey: 'howItWorks.lim03.t', dKey: 'howItWorks.lim03.d' },
+  { id: 'LIM-04', tKey: 'howItWorks.lim04.t', dKey: 'howItWorks.lim04.d' },
+  { id: 'LIM-05', tKey: 'howItWorks.lim05.t', dKey: 'howItWorks.lim05.d' },
+  { id: 'LIM-06', tKey: 'howItWorks.lim06.t', dKey: 'howItWorks.lim06.d' },
 ];
 
 export default function HowItWorks() {
+  const t = useTranslations();
+
   return (
     <div className="container max-w-5xl py-16">
       {/* header */}
-      <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-primary/80">{'// the_machine'}</p>
+      <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-primary/80">{t('howItWorks.eyebrow')}</p>
       <h1 className="display-hero mt-4 flex flex-wrap items-center gap-3 font-display text-5xl font-semibold tracking-tight sm:text-6xl">
-        How it works
+        {t('howItWorks.title')}
         <Sticker name="star-lime" size={48} className="h-10 w-auto motion-safe:animate-float" />
         <Sticker name="star-arc" size={56} className="hidden h-8 w-auto opacity-80 sm:block" />
         <Sticker name="doodle-spiral" size={30} className="hidden h-6 w-auto opacity-70 sm:block" />
       </h1>
       <p className="mt-5 max-w-xl text-lg text-muted-foreground text-balance">
-        alvinmunk turns trust into something you can see — and other apps can read.
-        Here&apos;s the whole machine, including the limits.
+        {t('howItWorks.subtitle')}
       </p>
 
       {/* the loop — scrollytelling */}
       <section className="mt-16">
         <div className="flex items-end justify-between border-b border-border/60 pb-3">
           <h2 className="flex items-center gap-2.5 font-display text-3xl font-semibold tracking-tight">
-            The vouch loop
+            {t('howItWorks.vouchLoop.title')}
             <Sticker name="doodle-spark" size={28} className="h-6 w-auto" />
           </h2>
-          <span className="font-mono text-xs text-muted-foreground">scroll ↓</span>
+          <span className="font-mono text-xs text-muted-foreground">{t('howItWorks.vouchLoop.scroll')}</span>
         </div>
         <div className="mt-8">
           <LoopScroll />
@@ -55,46 +70,50 @@ export default function HowItWorks() {
       {/* two tracks */}
       <section className="mt-20">
         <h2 className="border-b border-border/60 pb-3 font-display text-3xl font-semibold tracking-tight">
-          Two kinds of XP
+          {t('howItWorks.xpTracks.title')}
         </h2>
         <div className="mt-8 grid gap-4 md:grid-cols-2">
-          <Frame label="track // social" index="A" tilt tape="br">
+          <Frame label={t('howItWorks.social.label')} index="A" tilt tape="br">
             <div className="relative p-7">
               <Sticker name="social-seen" size={70} rotate={6} className="absolute right-4 top-4" />
-              <Stamp accent="primary">CLOUT · NOT CASH</Stamp>
-              <h3 className="mt-4 text-xl font-semibold">Social XP</h3>
+              <Stamp accent="primary">{t('howItWorks.social.stamp')}</Stamp>
+              <h3 className="mt-4 text-xl font-semibold">{t('howItWorks.social.title')}</h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                Earned from vouches. Powers your rank, leaderboard, and clout. It is{' '}
-                <strong className="text-foreground">never cashable</strong> — and that&apos;s on purpose.
+                <SplitHighlight
+                  raw={t('howItWorks.social.body', { notCashable: t('howItWorks.social.notCashable') })}
+                  highlight={t('howItWorks.social.notCashable')}
+                />
               </p>
             </div>
           </Frame>
-          <Frame label="track // earned" index="B" accent="secondary" tilt>
+          <Frame label={t('howItWorks.earned.label')} index="B" accent="secondary" tilt>
             <div className="relative p-7">
               <Sticker name="stamp-verified" size={72} rotate={-8} className="absolute right-3 top-3" />
-              <Stamp accent="secondary">UNLOCKS USDC</Stamp>
-              <h3 className="mt-4 text-xl font-semibold">Earned XP</h3>
+              <Stamp accent="secondary">{t('howItWorks.earned.stamp')}</Stamp>
+              <h3 className="mt-4 text-xl font-semibold">{t('howItWorks.earned.title')}</h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                Earned only from attester-verified quests. It is the{' '}
-                <strong className="text-foreground">only track</strong> that can unlock USDC rewards.
+                <SplitHighlight
+                  raw={t('howItWorks.earned.body', { onlyTrack: t('howItWorks.earned.onlyTrack') })}
+                  highlight={t('howItWorks.earned.onlyTrack')}
+                />
               </p>
             </div>
           </Frame>
         </div>
       </section>
 
-      {/* anti-sybil — profile data page */}
+      {/* anti-sybil */}
       <section id="anti-sybil" className="mt-20 scroll-mt-24">
         <h2 className="border-b border-border/60 pb-3 font-display text-3xl font-semibold tracking-tight">
-          Anti-sybil, honestly
+          {t('howItWorks.antiSybil.title')}
         </h2>
         <p className="mt-3 text-sm text-muted-foreground">
-          We&apos;d rather show you the limits than pretend they don&apos;t exist.
+          {t('howItWorks.antiSybil.subtitle')}
         </p>
-        <Frame label="constraints // enforced" index="06" className="mt-6" tape="tr">
+        <Frame label={t('howItWorks.antiSybil.frame')} index="06" className="mt-6" tape="tr">
           <Sticker name="stamp-strip" size={96} rotate={-4} className="absolute -top-4 right-10 z-10 hidden sm:block" />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-            {LIMITS.map((l, i) => (
+            {LIMIT_KEYS.map((l, i) => (
               <div
                 key={l.id}
                 className={cn(
@@ -105,22 +124,21 @@ export default function HowItWorks() {
                 )}
               >
                 <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-primary/60">{l.id}</span>
-                <h3 className="mt-3 font-semibold">{l.t}</h3>
-                <p className="mt-1.5 text-sm text-muted-foreground">{l.d}</p>
+                <h3 className="mt-3 font-semibold">{t(l.tKey)}</h3>
+                <p className="mt-1.5 text-sm text-muted-foreground">{t(l.dKey)}</p>
               </div>
             ))}
           </div>
         </Frame>
       </section>
 
-      {/* devs — terminal */}
+      {/* devs */}
       <section id="devs" className="mt-20 scroll-mt-24">
         <h2 className="border-b border-border/60 pb-3 font-display text-3xl font-semibold tracking-tight">
-          For developers
+          {t('howItWorks.devs.title')}
         </h2>
         <p className="mt-3 text-sm text-muted-foreground">
-          alvinmunk emits a canonical attestation primitive. Any app can read a wallet&apos;s
-          reputation with one call.
+          {t('howItWorks.devs.body')}
         </p>
         <div className="mt-6 border border-border/70 bg-background/70">
           <div className="flex items-center gap-1.5 border-b border-border/60 px-3 py-2">
@@ -142,7 +160,7 @@ const earned = await getEarned(address); // → 30`}
         <Sticker name="social-boom" size={64} rotate={-10} className="absolute -top-6 left-1/2 hidden -translate-x-[7rem] motion-safe:animate-float md:block" />
         <span className="relative inline-flex overflow-hidden rounded-full">
           <Link href="/app" className={cn(buttonVariants({ variant: 'flow', size: 'lg' }))}>
-            Open the app
+            {t('howItWorks.devs.openApp')}
           </Link>
           <BorderBeam size={60} duration={6} colorTo="hsl(var(--tertiary))" />
         </span>

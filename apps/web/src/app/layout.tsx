@@ -8,6 +8,7 @@ import { SiteFooter } from '@/components/layout/site-footer';
 import { Toaster } from '@/components/ui/toaster';
 import { AnalyticsProvider } from '@/components/analytics';
 import { WalletProvider } from '@/components/wallet/wallet-provider';
+import { I18nProvider } from '@/lib/i18n';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://alvinmunk.vercel.app'),
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${fontVars} dark`} suppressHydrationWarning>
       <body className="grain min-h-dvh" suppressHydrationWarning>
         <WalletProvider>
+          <I18nProvider>
           <SmoothScroll />
           <Starfield />
           <Navbar />
@@ -39,6 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <SiteFooter />
           <Toaster />
           <AnalyticsProvider />
+          </I18nProvider>
         </WalletProvider>
       </body>
     </html>
