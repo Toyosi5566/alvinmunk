@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { shortAddr } from '@alvinmunk/shared';
+import { Sparkles } from 'lucide-react';
 import { fetchActivity, type FeedItem } from '@/lib/feed';
 import { reverseHandle } from '@/lib/registry';
 import { Frame } from '@/components/fx/frame';
 import { Avatar } from '@/components/Avatar';
+import { StateArt } from '@/components/ui/state-art';
 
 /**
  * Activity feed — "the sky is moving". Recent vouch claims from chain, labelled with
@@ -39,11 +41,24 @@ export function ActivityFeed() {
   return (
     <Frame label="log // recent_activity" index="LIVE">
       {items === null ? (
-        <p className="p-4 font-mono text-xs text-muted-foreground">reading the sky…</p>
+        <div className="space-y-2 p-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-2 rounded-xl border border-border/60 bg-background/40 px-3 py-2.5">
+              <div className="size-8 animate-pulse rounded-full bg-muted/50" />
+              <div className="h-2 flex-1 animate-pulse rounded bg-muted/40" />
+            </div>
+          ))}
+        </div>
       ) : items.length === 0 ? (
-        <p className="p-4 font-mono text-xs text-muted-foreground">
-          no recent activity — be the first to light a star.
-        </p>
+        <div className="flex flex-col items-center gap-3 px-6 py-8 text-center">
+          <StateArt kind="vouch-sent" size={140} />
+          <div>
+            <p className="font-display text-lg text-foreground">No activity yet</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              The first vouch turns this feed into a living trail of human proof.
+            </p>
+          </div>
+        </div>
       ) : (
         <ul className="divide-y divide-border/50 font-mono text-xs">
           {items.map((it, i) => (
