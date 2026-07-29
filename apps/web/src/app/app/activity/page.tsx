@@ -3,19 +3,16 @@
 import Link from 'next/link';
 import { Trophy, ArrowRight } from 'lucide-react';
 import { ActivityFeed } from '@/components/ActivityFeed';
+import { useTranslations } from '@/lib/i18n';
 
-/**
- * Activity — the moving sky. Recent vouch claims across the network, read straight from
- * chain events, plus a jump to the full leaderboard.
- */
 export default function ActivityPage() {
+  const t = useTranslations();
   return (
     <div className="grid gap-6">
       <header>
-        <h1 className="font-display text-2xl font-semibold">The sky is moving</h1>
+        <h1 className="font-display text-2xl font-semibold">{t('activity.page.title')}</h1>
         <p className="mt-1 max-w-prose text-sm text-muted-foreground text-balance">
-          Every claimed vouch lights a star somewhere. This feed reads live from on-chain
-          events — no backend in between.
+          {t('activity.page.subtitle')}
         </p>
       </header>
 
@@ -28,8 +25,8 @@ export default function ActivityPage() {
         <div className="flex items-center gap-3">
           <Trophy className="size-6 text-accent" />
           <div>
-            <p className="font-semibold">See the leaderboard</p>
-            <p className="text-sm text-muted-foreground">The most-connected constellations, ranked.</p>
+            <p className="font-semibold">{t('activity.page.leaderboard.title')}</p>
+            <p className="text-sm text-muted-foreground">{t('activity.page.leaderboard.body')}</p>
           </div>
         </div>
         <ArrowRight className="size-5 -translate-x-1 text-muted-foreground transition-all group-hover:translate-x-0 group-hover:text-foreground" />

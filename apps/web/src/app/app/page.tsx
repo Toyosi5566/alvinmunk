@@ -10,6 +10,7 @@ import { FirstStarNudge } from '@/components/FirstStarNudge';
 import { InviteNudge } from '@/components/InviteNudge';
 import { PendingHalfCards } from '@/components/PendingHalfCards';
 import { ActivityFeed } from '@/components/ActivityFeed';
+import { useTranslations } from '@/lib/i18n';
 
 // three.js stays out of SSR + the marketing bundle — lazy, client-only.
 const ConstellationHero3D = dynamic(() => import('@/components/brand/constellation-3d'), {
@@ -28,36 +29,37 @@ const ConstellationHero3D = dynamic(() => import('@/components/brand/constellati
   ),
 });
 
-const SHORTCUTS = [
-  {
-    href: '/app/vouch',
-    icon: Star,
-    title: 'Light a star',
-    body: 'Vouch for someone — even before they join. Your card becomes their invite.',
-    tint: 'text-accent',
-    cashable: false,
-  },
-  {
-    href: '/app/quests',
-    icon: Target,
-    title: 'Earn verified XP',
-    body: 'Complete attester-checked quests. Earned XP is the only track that unlocks USDC.',
-    tint: 'text-secondary',
-    cashable: true,
-  },
-  {
-    href: '/app/rewards',
-    icon: Coins,
-    title: 'Tip & cash out',
-    body: 'Send USDC tips and claim rank rewards once your Earned XP clears the bar.',
-    tint: 'text-tertiary',
-    cashable: true,
-  },
-];
-
 export default function AppHome() {
+  const t = useTranslations();
   const { profile } = useWallet();
   if (!profile) return null;
+
+  const SHORTCUTS = [
+    {
+      href: '/app/vouch',
+      icon: Star,
+      titleKey: 'appHome.shortcut.vouch.title',
+      bodyKey: 'appHome.shortcut.vouch.body',
+      tint: 'text-accent',
+      cashable: false,
+    },
+    {
+      href: '/app/quests',
+      icon: Target,
+      titleKey: 'appHome.shortcut.quests.title',
+      bodyKey: 'appHome.shortcut.quests.body',
+      tint: 'text-secondary',
+      cashable: true,
+    },
+    {
+      href: '/app/rewards',
+      icon: Coins,
+      titleKey: 'appHome.shortcut.rewards.title',
+      bodyKey: 'appHome.shortcut.rewards.body',
+      tint: 'text-tertiary',
+      cashable: true,
+    },
+  ];
 
   const shortcuts = SHORTCUTS.filter((s) => !s.cashable || !FOCUS_MODE);
 
@@ -76,7 +78,7 @@ export default function AppHome() {
       {/* Quick actions — the three focused routes, one job each */}
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          What now
+          {t('appHome.whatNow')}
         </h2>
         <div className={`grid gap-3 ${shortcuts.length > 1 ? 'sm:grid-cols-3' : ''}`}>
           {shortcuts.map((s) => {
@@ -90,10 +92,10 @@ export default function AppHome() {
                 <Icon className={`size-6 ${s.tint}`} />
                 <div>
                   <p className="flex items-center gap-1 font-semibold">
-                    {s.title}
+                    {t(s.titleKey)}
                     <ArrowRight className="size-4 -translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
                   </p>
-                  <p className="mt-1 text-sm text-muted-foreground text-balance">{s.body}</p>
+                  <p className="mt-1 text-sm text-muted-foreground text-balance">{t(s.bodyKey)}</p>
                 </div>
               </Link>
             );
@@ -105,10 +107,10 @@ export default function AppHome() {
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Recent activity
+            {t('appHome.recentActivity')}
           </h2>
           <Link href="/app/activity" className="text-sm text-primary hover:underline">
-            View all
+            {t('appHome.viewAll')}
           </Link>
         </div>
         <ActivityFeed />

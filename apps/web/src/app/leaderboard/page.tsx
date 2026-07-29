@@ -11,23 +11,17 @@ import { ShareRow } from '@/components/fx/share-row';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StateArt } from '@/components/ui/state-art';
 import { Sticker } from '@/components/ui/sticker';
+import { useTranslations } from '@/lib/i18n';
 import { cn, shortAddress } from '@/lib/utils';
 
-/**
- * Leaderboard — the night sky of the most-connected (faces over numbers), folded from
- * on-chain `social` events via RPC, polled every 5s. Technical-profile skin.
- */
 export default function LeaderboardPage() {
+  const t = useTranslations();
   const [rows, setRows] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [handles, setHandles] = useState<Record<string, string | null>>({});
-  // The leaderboard is the only piece that depends on the off-chain event read — the core
-  // loop (vouch/claim/ignite) is tx-driven and never touches it. Surface read freshness so a
-  // silent RPC/indexer failure is VISIBLE here instead of quietly showing stale scores.
   const [stale, setStale] = useState(false);
   const me = loadProfile()?.address;
 
-  // Reverse-lookup @handles for any new addresses (incremental — never re-fetch known).
   useEffect(() => {
     const missing = rows.map((r) => r.address).filter((a) => !(a in handles));
     if (missing.length === 0) return;
@@ -35,9 +29,7 @@ export default function LeaderboardPage() {
     Promise.all(missing.map(async (a) => [a, await reverseHandle(a).catch(() => null)] as const)).then(
       (pairs) => alive && setHandles((h) => ({ ...h, ...Object.fromEntries(pairs) })),
     );
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [rows, handles]);
 
   useEffect(() => {
@@ -45,35 +37,29 @@ export default function LeaderboardPage() {
     const tick = async () => {
       try {
         const r = await fetchLeaderboard();
-        if (alive) {
-          setRows(r);
-          setStale(false);
-        }
+        if (alive) { setRows(r); setStale(false); }
       } catch {
-        if (alive) setStale(true); // read failed — mark stale so it's not silently wrong
+        if (alive) setStale(true);
       } finally {
         if (alive) setLoading(false);
       }
     };
     void tick();
     const iv = setInterval(tick, 5000);
-    return () => {
-      alive = false;
-      clearInterval(iv);
-    };
+    return () => { alive = false; clearInterval(iv); };
   }, []);
 
   return (
     <div className="container max-w-2xl py-14">
-      <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-primary/80">{'// the_night_sky'}</p>
+      <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-primary/80">{t('leaderboard.eyebrow')}</p>
       <div className="mt-4 flex items-end justify-between border-b border-border/60 pb-3">
-        <h1 className="font-display text-4xl font-semibold tracking-tight">The most-connected</h1>
+        <h1 className="font-display text-4xl font-semibold tracking-tight">{t('leaderboard.title')}</h1>
         <span
           className={cn(
             'inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.15em]',
             stale ? 'text-amber-400/90' : 'text-secondary/80',
           )}
-          title={stale ? 'Couldn’t refresh from the chain — scores may be behind.' : 'Live from the chain.'}
+          title={stale ? t('leaderboard.syncTitle.stale') : t('leaderboard.syncTitle.live')}
         >
           <span
             className={cn(
@@ -81,17 +67,17 @@ export default function LeaderboardPage() {
               stale ? 'bg-amber-400' : 'bg-secondary motion-safe:animate-glow-pulse',
             )}
           />
-          {stale ? 'sync delayed' : 'live'}
+          {stale ? t('leaderboard.syncDelayed') : t('leaderboard.live')}
         </span>
       </div>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <p className="font-mono text-xs text-muted-foreground">
-          social_score · clout_not_cash · poll=5s
+          {t('leaderboard.meta')}
         </p>
-        <ShareRow path="/leaderboard" text="The most-connected on alvinmunk 🌌 — collect people, not points." />
+        <ShareRow path="/leaderboard" text={t('leaderboard.share')} />
       </div>
 
-      <Frame label="ranking // social_xp" index={`${rows.length || '—'} entries`} className="mt-6">
+      <Frame label={t('leaderboard.frame')} index={`${rows.length || '—'} entries`} className="mt-6">
         {loading ? (
           <div className="flex flex-col gap-px">
             {[0, 1, 2, 3, 4].map((i) => (
@@ -102,7 +88,7 @@ export default function LeaderboardPage() {
           <div className="flex flex-col items-center gap-4 p-10 text-center">
             <StateArt kind="empty-leaderboard" size={300} className="motion-safe:animate-float" />
             <p className="font-mono text-sm text-muted-foreground">
-              no constellations yet — be the first to vouch ten people.
+              {t('leaderboard.empty')}
             </p>
           </div>
         ) : (
@@ -133,10 +119,10 @@ export default function LeaderboardPage() {
                       )}
                     </p>
                     <div className="mt-0.5 flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider">
-                      {isMe && <span className="text-primary">you</span>}
+                      {isMe && <span className="text-primary">{t('leaderboard.you')}</span>}
                       {e.flagged && (
-                        <span title="reciprocal vouch pair — possible ring" className="text-warning">
-                          ⚠ flagged
+                        <span title={t('leaderboard.flaggedTitle')} className="text-warning">
+                          {t('leaderboard.flagged')}
                         </span>
                       )}
                     </div>

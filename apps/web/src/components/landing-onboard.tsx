@@ -9,6 +9,7 @@ import { useWallet } from '@/components/wallet/wallet-provider';
 import { normalizeHandle, type Profile } from '@/lib/profile';
 import { humanizeError } from '@/lib/utils';
 import { track, identify, trackError } from '@/lib/track';
+import { useTranslations } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -22,6 +23,7 @@ import { Input } from '@/components/ui/input';
  * into the server-rendered landing page and break the client-reference (renders as undefined).
  */
 export function LandingOnboard() {
+  const t = useTranslations();
   const { profile, connect, setProfile } = useWallet();
   const router = useRouter();
   const [handle, setHandle] = useState('');
@@ -33,7 +35,7 @@ export function LandingOnboard() {
     if (h.length < 3) return setAvail('idle');
     setAvail('checking');
     let alive = true;
-    const t = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       try {
         const { isHandleAvailable } = await import('@/lib/registry');
         const free = await isHandleAvailable(h);
@@ -44,7 +46,7 @@ export function LandingOnboard() {
     }, 400);
     return () => {
       alive = false;
-      clearTimeout(t);
+      clearTimeout(timer);
     };
   }, [handle]);
 
@@ -53,7 +55,7 @@ export function LandingOnboard() {
     return (
       <Link href="/app" className="inline-flex">
         <Button variant="flow" size="lg">
-          Open your app <ArrowRight className="size-4" />
+          {t('onboard.landing.openApp')} <ArrowRight className="size-4" />
         </Button>
       </Link>
     );
@@ -61,7 +63,7 @@ export function LandingOnboard() {
 
   async function createProfile() {
     const h = normalizeHandle(handle);
-    if (h.length < 3) return toast.error('Pick a handle — 3+ letters or numbers.');
+    if (h.length < 3) return toast.error(t('onboard.landing.errShort'));
     setBusy(true);
     try {
       const [{ recordGenesis }, { claimHandle, isHandleAvailable }] = await Promise.all([
@@ -70,7 +72,7 @@ export function LandingOnboard() {
       ]);
       const w = await connect();
       if (!(await isHandleAvailable(h))) {
-        toast.error(`@${h} is taken — pick another.`);
+        toast.error(t('onboard.landing.errTaken', { handle: h }));
         return;
       }
       const tx = w.kind === 'passkey' ? undefined : await recordGenesis(w, h);
@@ -79,7 +81,7 @@ export function LandingOnboard() {
       setProfile(p);
       identify(w.address, { handle: h, walletKind: w.kind });
       track('profile_created', { walletKind: w.kind, from: 'landing' });
-      toast.success(`You're in — @${h} stamped on-chain.`);
+      toast.success(t('onboard.landing.success', { handle: h }));
       router.push('/app');
     } catch (e) {
       console.error('🛑 landing onboard failed →', e);
@@ -103,20 +105,20 @@ export function LandingOnboard() {
         <Input
           value={handle}
           onChange={(e) => setHandle(e.target.value)}
-          placeholder="pick your handle"
-          aria-label="Handle"
+          placeholder={t('onboard.landing.placeholder')}
+          aria-label={t('onboard.landing.ariaLabel')}
           className="h-11 flex-1 border-0 bg-transparent focus-visible:ring-0"
         />
         <Button type="submit" variant="flow" size="md" disabled={busy || avail === 'taken'} className="shrink-0">
-          {busy ? 'Creating…' : 'Start free'}
+          {busy ? t('onboard.landing.creating') : t('onboard.landing.startFree')}
           {!busy && <ArrowRight className="size-4" />}
         </Button>
       </div>
       <p className="mt-2 h-4 pl-4 text-xs">
-        {avail === 'checking' && <span className="text-muted-foreground">checking…</span>}
-        {avail === 'free' && <span className="text-secondary">✓ @{normalizeHandle(handle)} is free</span>}
-        {avail === 'taken' && <span className="text-destructive">@{normalizeHandle(handle)} is taken</span>}
-        {avail === 'idle' && <span className="text-muted-foreground">no seed phrase · fees sponsored · one tap</span>}
+        {avail === 'checking' && <span className="text-muted-foreground">{t('onboard.landing.checking')}</span>}
+        {avail === 'free' && <span className="text-secondary">{t('onboard.landing.handleFree', { handle: normalizeHandle(handle) })}</span>}
+        {avail === 'taken' && <span className="text-destructive">{t('onboard.landing.handleTaken', { handle: normalizeHandle(handle) })}</span>}
+        {avail === 'idle' && <span className="text-muted-foreground">{t('onboard.landing.pill')}</span>}
       </p>
     </form>
   );
