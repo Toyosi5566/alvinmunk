@@ -1,3 +1,4 @@
+import React from 'react';
 import { cn } from '@/lib/utils';
 import { STICKER, TAPE, asset, type StickerName, type TapeCorner } from '@/lib/assets';
 

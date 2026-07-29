@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Sparkles, Users, ShieldCheck } from 'lucide-react';
 import { getScores } from '@/lib/reputation';
+import { StateArt } from '@/components/ui/state-art';
 import { cn } from '@/lib/utils';
 
 /**
@@ -29,13 +30,26 @@ const TILES: Tile[] = [
 
 export function StatStrip({ address }: { address: string }) {
   const [scores, setScores] = useState<{ social: number; earned: number } | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
-    const load = () =>
+    const load = () => {
+      setLoading(true);
       getScores(address)
-        .then((s) => alive && setScores(s))
-        .catch(() => {});
+        .then((s) => {
+          if (alive) {
+            setScores(s);
+            setLoading(false);
+          }
+        })
+        .catch(() => {
+          if (alive) {
+            setScores({ social: 0, earned: 0 });
+            setLoading(false);
+          }
+        });
+    };
     load();
     const t = setInterval(load, REFRESH_MS);
     return () => {
@@ -47,24 +61,55 @@ export function StatStrip({ address }: { address: string }) {
   const stars = scores ? Math.max(0, Math.round(scores.social / 10)) : 0;
   const value = (k: Tile['key']) =>
     k === 'stars' ? stars : k === 'social' ? scores?.social ?? 0 : scores?.earned ?? 0;
+  const hasAnySignal = (scores?.social ?? 0) > 0 || (scores?.earned ?? 0) > 0;
 
   return (
-    <div className="grid grid-cols-3 gap-3">
-      {TILES.map((t) => {
-        const Icon = t.icon;
-        return (
-          <div key={t.key} className="glass rounded-2xl p-4">
-            <div className="mb-2 flex items-center gap-2">
-              <Icon className={cn('size-4', t.tint)} />
-              <span className="text-xs font-medium text-muted-foreground">{t.label}</span>
+    <div className="space-y-3">
+      <div className="grid grid-cols-3 gap-3">
+        {loading
+          ? TILES.map((t) => {
+              const Icon = t.icon;
+              return (
+                <div key={t.key} className="glass rounded-2xl p-4">
+                  <div className="mb-2 flex items-center gap-2">
+                    <Icon className={cn('size-4', t.tint)} />
+                    <span className="text-xs font-medium text-muted-foreground">{t.label}</span>
+                  </div>
+                  <div className="h-9 w-16 animate-pulse rounded bg-muted/40" />
+                  <div className="mt-2 h-2 w-20 animate-pulse rounded bg-muted/30" />
+                </div>
+              );
+            })
+          : TILES.map((t) => {
+              const Icon = t.icon;
+              return (
+                <div key={t.key} className="glass rounded-2xl p-4">
+                  <div className="mb-2 flex items-center gap-2">
+                    <Icon className={cn('size-4', t.tint)} />
+                    <span className="text-xs font-medium text-muted-foreground">{t.label}</span>
+                  </div>
+                  <div className="font-display text-3xl font-semibold tabular-nums">
+                    {value(t.key).toLocaleString('en-US')}
+                  </div>
+                  <p className="mt-1 hidden text-[11px] text-muted-foreground/70 sm:block">{t.hint}</p>
+                </div>
+              );
+            })}
+      </div>
+
+      {!loading && !hasAnySignal && (
+        <div className="glass rounded-2xl border border-dashed border-primary/30 p-4">
+          <div className="flex items-start gap-3">
+            <StateArt kind="empty-leaderboard" size={96} className="shrink-0" />
+            <div>
+              <p className="font-display text-lg text-foreground">Your constellation is still quiet</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                The first vouch, quest, or tip lights up your reputation trail and turns this strip into a living résumé.
+              </p>
             </div>
-            <div className="font-display text-3xl font-semibold tabular-nums">
-              {scores ? value(t.key).toLocaleString('en-US') : <span className="text-muted-foreground/40">—</span>}
-            </div>
-            <p className="mt-1 hidden text-[11px] text-muted-foreground/70 sm:block">{t.hint}</p>
           </div>
-        );
-      })}
+        </div>
+      )}
     </div>
   );
 }

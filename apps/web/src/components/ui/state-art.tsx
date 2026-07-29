@@ -1,3 +1,4 @@
+import React from 'react';
 import { cn } from '@/lib/utils';
 import { STATE, asset, type StateKind } from '@/lib/assets';
 

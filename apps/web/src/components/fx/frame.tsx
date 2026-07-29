@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, type ReactNode } from 'react';
+import React, { useRef, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { Tape } from '@/components/ui/sticker';
 import { type TapeCorner } from '@/lib/assets';
