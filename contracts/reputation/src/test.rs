@@ -272,6 +272,45 @@ fn non_allowlisted_attester_reverts() {
     client.award_xp(&imposter, &user, &2u32, &50u64); // panics: NotAuthorized
 }
 
+#[test]
+fn get_profile_matches_individual_getters_for_untouched_address() {
+    let (env, client, _admin) = setup();
+    let stranger = Address::generate(&env);
+    let p = client.get_profile(&stranger);
+    assert_eq!(p.social, client.get_score(&stranger));
+    assert_eq!(p.earned, client.get_earned(&stranger));
+    assert_eq!(p.verified, client.is_verified(&stranger));
+    assert_eq!(p.social, 0);
+    assert_eq!(p.earned, 0);
+    assert!(!p.verified);
+}
+
+#[test]
+fn get_profile_aggregates_across_social_and_earned_state_changes() {
+    let (env, client, _admin) = setup();
+    let attester = Address::generate(&env);
+    client.add_attester(&attester);
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+
+    // Vouch + claim: Social XP only, still unverified.
+    let (secret, hash) = secret_and_hash(&env, 7);
+    let id = client.mint_vouch(&alice, &hash, &String::from_str(&env, "hi"));
+    client.claim_vouch(&bob, &id, &secret);
+
+    let p1 = client.get_profile(&bob);
+    assert_eq!(p1.social, 30);
+    assert_eq!(p1.earned, 0);
+    assert!(!p1.verified);
+
+    // A verified quest flips earned + verified; profile must reflect both immediately.
+    client.award_xp(&attester, &bob, &2u32, &50u64);
+    let p2 = client.get_profile(&bob);
+    assert_eq!(p2.social, client.get_score(&bob));
+    assert_eq!(p2.earned, 50);
+    assert!(p2.verified);
+}
+
 // --- Property/fuzz tests on the XP math (Green-belt AC) ---
 use proptest::prelude::*;
 

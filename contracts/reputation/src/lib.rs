@@ -107,6 +107,16 @@ pub struct Attestation {
     pub revoked: bool,
 }
 
+/// Aggregate read shape for get_profile — the single-round-trip replacement for
+/// separately calling get_score + get_earned (+ is_verified) from anchors/apps.
+#[contracttype]
+#[derive(Clone)]
+pub struct Profile {
+    pub social: u64,
+    pub earned: u64,
+    pub verified: bool,
+}
+
 #[contract]
 pub struct ReputationContract;
 
@@ -362,6 +372,17 @@ impl ReputationContract {
             .persistent()
             .get(&DataKey::Verified(addr))
             .unwrap_or(false)
+    }
+
+    /// Aggregate profile view — social + earned + verified in ONE call. Purely
+    /// composes the existing getters; no new storage, no new write path. Cuts
+    /// get_profile-style callers from 2-3 round-trips down to 1.
+    pub fn get_profile(env: Env, addr: Address) -> Profile {
+        Profile {
+            social: Self::get_score(env.clone(), addr.clone()),
+            earned: Self::get_earned(env.clone(), addr.clone()),
+            verified: Self::is_verified(env, addr),
+        }
     }
 
     // --- internal ---
