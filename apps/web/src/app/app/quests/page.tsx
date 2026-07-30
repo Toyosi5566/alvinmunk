@@ -5,13 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useWallet } from '@/components/wallet/wallet-provider';
 import { FOCUS_MODE } from '@/lib/focus';
 import { Quests } from '@/components/Quests';
+import { useTranslations } from '@/lib/i18n';
 
-/**
- * Quests — verified, attester-checked actions that grant Earned XP. Earned XP is the only
- * track the Rewards contract reads, so this is the path to anything cashable. Hidden under
- * FOCUS_MODE (belts/08) — direct hits bounce back to Home.
- */
 export default function QuestsPage() {
+  const t = useTranslations();
   const router = useRouter();
   const { profile } = useWallet();
   useEffect(() => {
@@ -19,14 +16,20 @@ export default function QuestsPage() {
   }, [router]);
   if (FOCUS_MODE || !profile) return null;
 
+  // The subtitle contains an inline coloured span for "Earned XP". We split on the
+  // interpolated placeholder text so both locales keep the highlight in the right place.
+  const earnedXP = t('quests.page.earnedXP');
+  const subtitleRaw = t('quests.page.subtitle', { earnedXP });
+  const [before, after] = subtitleRaw.split(earnedXP);
+
   return (
     <div className="grid gap-6">
       <header>
-        <h1 className="font-display text-2xl font-semibold">Verified quests</h1>
+        <h1 className="font-display text-2xl font-semibold">{t('quests.page.title')}</h1>
         <p className="mt-1 max-w-prose text-sm text-muted-foreground text-balance">
-          These are checked by the attester, not self-reported. Each completion mints{' '}
-          <span className="text-secondary">Earned XP</span> — the only kind that can ever unlock
-          USDC. Keep a weekly streak going to climb faster.
+          {before}
+          <span className="text-secondary">{earnedXP}</span>
+          {after}
         </p>
       </header>
 

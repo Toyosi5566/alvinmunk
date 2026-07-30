@@ -7,6 +7,8 @@ import {
   makeReplayGuard,
   parseRepoAllowlist,
   repoAllowed,
+  decodeDataEntry,
+  REFERRAL_MARKER_KEY,
   MAX_REF_LEN,
   type AttestClaim,
 } from './attest';
@@ -111,5 +113,62 @@ describe('repo allowlist', () => {
     expect(repoAllowed(allow, 'evil', 'repo')).toBe(false);
     // no allowlist configured -> any repo passes
     expect(repoAllowed(null, 'anything', 'goes')).toBe(true);
+  });
+});
+
+describe('decodeDataEntry', () => {
+  it('round-trips a G-address stored as base64 UTF-8', () => {
+    const addr = G; // G + 55 'A's — a valid-shaped G-address
+    const b64 = Buffer.from(addr, 'utf8').toString('base64');
+    expect(decodeDataEntry(b64)).toBe(addr);
+  });
+
+  it('returns null for an empty string', () => {
+    expect(decodeDataEntry('')).toBeNull();
+  });
+
+  it('returns null when the base64 decodes to an empty payload', () => {
+    // base64 of empty string
+    expect(decodeDataEntry(Buffer.from('', 'utf8').toString('base64'))).toBeNull();
+  });
+
+  it('returns null for garbage that is not valid base64-of-address', () => {
+    // completely invalid base64 — Buffer.from is lenient but the result is non-null only
+    // if there are actual bytes; supply a string that decodes to empty-ish content
+    expect(decodeDataEntry('!!!!')).toBeNull(); // '!!!!' -> Buffer is empty after base64 decode
+  });
+
+  it('is exported and the REFERRAL_MARKER_KEY constant is "referral"', () => {
+    expect(REFERRAL_MARKER_KEY).toBe('referral');
+  });
+});
+
+describe('validateEvidence — referral_tx on-chain marker', () => {
+  it('accepts a valid referral_tx with a different G-address ref', () => {
+    expect(validateEvidence({ type: 'referral_tx', ref: G2 }, G).ok).toBe(true);
+  });
+
+  it('rejects when ref is not a G-address (C-address, arbitrary string)', () => {
+    const C = 'C'.padEnd(56, 'A');
+    expect(validateEvidence({ type: 'referral_tx', ref: C }, G).ok).toBe(false);
+    expect(validateEvidence({ type: 'referral_tx', ref: 'notanaddress' }, G).ok).toBe(false);
+  });
+
+  it('rejects self-referral at the shape level', () => {
+    const result = validateEvidence({ type: 'referral_tx', ref: G }, G);
+    expect(result).toEqual({ ok: false, reason: 'cannot refer yourself' });
+  });
+});
+
+describe('referral marker round-trip invariant', () => {
+  // Mirrors what the attester does: encode the referrer address, then decode and compare.
+  it('encodes referrer address → base64 → decodes back to the same address', () => {
+    const referrer = G2;
+    const encoded = Buffer.from(referrer, 'utf8').toString('base64');
+    const decoded = decodeDataEntry(encoded);
+    expect(decoded).toBe(referrer);
+    // A different referrer's address must NOT match
+    const otherEncoded = Buffer.from(G, 'utf8').toString('base64');
+    expect(decodeDataEntry(otherEncoded)).not.toBe(referrer);
   });
 });

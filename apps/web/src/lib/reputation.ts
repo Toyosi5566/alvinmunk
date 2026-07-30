@@ -5,7 +5,7 @@
  * recipient's address. The share link carries the secret; the recipient binds their
  * own address at claim time. This is the cold-start fix (belts/00-strategy §3).
  */
-import { invokeAndWait, readContract, readPublic, args, repId } from './contracts';
+import { invokeAndWait, readContract, readPublic, args, repId, questId } from './contracts';
 import type { Wallet } from './wallet';
 
 /** Vouch TTL — claim within this window to refund the voucher's stake (mirrors the
@@ -115,4 +115,14 @@ export async function getSocialScore(addr: string, source: string): Promise<numb
 export async function getEarnedScore(addr: string, source: string): Promise<number> {
   const v = await readContract<bigint>(repId(), 'get_earned', [args.addr(addr)], source);
   return Number(v ?? 0);
+}
+
+/** `get_attestation(addr)` — Read completed quest attestations for an address. */
+export async function getAttestation(addr: string): Promise<number> {
+  try {
+    const v = await readPublic<bigint>(questId(), 'get_completed', [args.addr(addr)]);
+    return Number(v ?? 0);
+  } catch {
+    return 0;
+  }
 }

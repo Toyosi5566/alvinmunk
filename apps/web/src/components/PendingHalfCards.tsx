@@ -1,17 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Copy, Check } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Copy, Check, Sparkles } from 'lucide-react';
 import { getPendingVouches, type PendingVouch } from '@/lib/myvouches';
 import { Frame } from '@/components/fx/frame';
 import { Sticker } from '@/components/ui/sticker';
+import { StateArt } from '@/components/ui/state-art';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 /**
  * Pending half-cards — vouches you minted that NOBODY claimed yet. The re-engagement
  * hook (your staked Social XP gets slashed if the window closes): re-share the link.
- * Hides itself when there's nothing pending.
+ * Shows a friendly empty state when there's nothing pending.
  */
 export function PendingHalfCards() {
   const [items, setItems] = useState<PendingVouch[] | null>(null);
@@ -23,8 +24,6 @@ export function PendingHalfCards() {
       .catch(() => setItems([]));
   }, []);
 
-  if (items === null || items.length === 0) return null;
-
   async function copy(v: PendingVouch) {
     try {
       await navigator.clipboard.writeText(v.claimUrl);
@@ -33,6 +32,33 @@ export function PendingHalfCards() {
     } catch {
       /* clipboard unavailable */
     }
+  }
+
+  if (items === null) {
+    return (
+      <Frame label="pending // awaiting_claim" index="00" accent="tertiary" tape="tr">
+        <div className="space-y-2 p-4">
+          <div className="h-3 w-24 animate-pulse rounded bg-muted/40" />
+          <div className="h-10 animate-pulse rounded-xl bg-muted/30" />
+        </div>
+      </Frame>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <Frame label="pending // awaiting_claim" index="00" accent="tertiary" tape="tr">
+        <div className="flex flex-col items-center gap-3 px-6 py-8 text-center">
+          <StateArt kind="vouch-sent" size={140} />
+          <div>
+            <p className="font-display text-lg text-foreground">No half-cards waiting</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              When you mint a vouch that nobody claims yet, this panel becomes your friendly reminder to share it again.
+            </p>
+          </div>
+        </div>
+      </Frame>
+    );
   }
 
   return (

@@ -20,10 +20,18 @@ export interface RepEvent {
   ledger: number;
 }
 
-/** Decode an XDR/base64 ScVal to its native JS value. */
+/**
+ * Decode an XDR/base64 ScVal to its native JS value.
+ * Returns null on malformed input so that contract-event callers (leaderboard,
+ * feed, constellation) degrade gracefully instead of crashing on bad data.
+ */
 export function decodeScVal(v: xdr.ScVal | string): unknown {
-  const sv = typeof v === 'string' ? xdr.ScVal.fromXDR(v, 'base64') : v;
-  return scValToNative(sv);
+  try {
+    const sv = typeof v === 'string' ? xdr.ScVal.fromXDR(v, 'base64') : v;
+    return scValToNative(sv);
+  } catch {
+    return null;
+  }
 }
 
 /**

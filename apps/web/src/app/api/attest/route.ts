@@ -28,7 +28,9 @@ import {
 } from '@stellar/stellar-sdk';
 import {
   MAX_BODY_BYTES,
+  REFERRAL_MARKER_KEY,
   VOUCH_BACK_MIN,
+  decodeDataEntry,
   isValidQuestId,
   parseRepoAllowlist,
   repoAllowed,
@@ -179,14 +181,40 @@ async function verifyEvidence(
   }
 
   if (ev.type === 'referral_tx') {
-    // KNOWN LIMITATION (belts/08, deferred to Blue): proves the referred account is active,
-    // NOT that a real referral relationship exists. Intentional at <50 users.
-    const r = await fetch(`${HORIZON}/accounts/${ev.ref}/transactions?limit=1`);
-    if (!r.ok) return { ok: false, reason: 'referred account not found' };
-    const data = (await r.json()) as { _embedded?: { records?: unknown[] } };
-    return (data._embedded?.records?.length ?? 0) > 0
-      ? { ok: true }
-      : { ok: false, reason: 'no on-chain activity' };
+    // Fetch the referred account object (includes manageData under .data).
+    const r = await fetch(`${HORIZON}/accounts/${ev.ref}`);
+    if (r.status === 404) return { ok: false, reason: 'referred account not found on-chain' };
+    if (!r.ok) return { ok: false, reason: `horizon error ${r.status}` };
+
+    const acct = (await r.json()) as { data?: Record<string, string> };
+
+    // The referred account MUST have set a manageData entry ("referral") whose value
+    // (base64-decoded UTF-8) is exactly the referrer's address. This proves the referrer
+    // caused the relationship — not merely that the referred account is active.
+    const raw = acct.data?.[REFERRAL_MARKER_KEY];
+    if (!raw) {
+      return {
+        ok: false,
+        reason:
+          `referred account has no "${REFERRAL_MARKER_KEY}" data entry — ` +
+          'ask them to set it to your address during onboarding',
+      };
+    }
+
+    const stored = decodeDataEntry(raw);
+    if (stored !== recipient) {
+      // Either corrupted, or someone tried to reuse a marker already claimed by
+      // another referrer. Both cases are rejected.
+      return {
+        ok: false,
+        reason:
+          stored === ev.ref
+            ? 'referral marker is a self-referral on the referred account'
+            : 'referral marker points to a different referrer — cannot reuse this marker',
+      };
+    }
+
+    return { ok: true };
   }
 
   return { ok: false, reason: 'unknown evidence type' };

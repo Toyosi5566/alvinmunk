@@ -1,0 +1,54 @@
+/**
+ * Reverse-resolve onboarded wallets -> handles via registry.reverse(addr).
+ * Read-only simulation, no signing. Run from repo root: node scripts/list-handles.mjs [N]
+ */
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+const webDir = path.join(root, 'apps', 'web');
+const require = createRequire(path.join(webDir, 'package.json'));
+const { rpc, Contract, Address, Account, Keypair, TransactionBuilder, BASE_FEE, nativeToScVal, scValToNative } =
+  require('@stellar/stellar-sdk');
+
+const env = {};
+const envPath = path.join(webDir, '.env.local');
+if (fs.existsSync(envPath))
+  for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
+    const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
+    if (m) env[m[1]] = m[2].trim();
+  }
+const pick = (k) => process.env[k] || env[k];
+
+const RPC = pick('NEXT_PUBLIC_RPC_URL') || 'https://soroban-testnet.stellar.org';
+const PASSPHRASE = pick('NEXT_PUBLIC_NETWORK_PASSPHRASE') || 'Test SDF Network ; September 2015';
+const REG = pick('NEXT_PUBLIC_REGISTRY_CONTRACT_ID');
+const LIMIT = Number(process.argv[2] || 15);
+
+const roster = JSON.parse(fs.readFileSync(path.join(webDir, 'src', 'data', 'onboarded-wallets.json'), 'utf8'));
+const addrs = roster.testnet || [];
+const server = new rpc.Server(RPC);
+const src = new Account(Keypair.random().publicKey(), '0');
+const reg = new Contract(REG);
+
+const out = [];
+for (const a of addrs) {
+  if (out.length >= LIMIT) break;
+  try {
+    const tx = new TransactionBuilder(src, { fee: BASE_FEE, networkPassphrase: PASSPHRASE })
+      .addOperation(reg.call('reverse', nativeToScVal(Address.fromString(a), { type: 'address' })))
+      .setTimeout(30)
+      .build();
+    const sim = await server.simulateTransaction(tx);
+    const rv = sim.result?.retval;
+    const handle = rv ? scValToNative(rv) : null;
+    if (handle) out.push({ handle: String(handle), addr: a });
+  } catch {
+    /* skip */
+  }
+}
+
+console.log(`\nResolved ${out.length} handles (of ${addrs.length} wallets):\n`);
+for (const { handle, addr } of out) console.log(`@${handle.padEnd(16)} ${addr.slice(0, 6)}…${addr.slice(-4)}`);
