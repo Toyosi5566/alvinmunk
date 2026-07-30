@@ -22,6 +22,32 @@ export interface AttestEvidence {
    * address; vouch_back → unused (the recipient's own mint history is checked). */
   ref: string;
 }
+
+/**
+ * The manageData entry name the REFERRED account must set on-chain to bind the referral.
+ * Value must be the REFERRER's G-address encoded as UTF-8 bytes (Horizon stores it
+ * base64-encoded; the attester decodes it and compares to `recipient`).
+ *
+ * Onboarding flow: when a new user is invited, they include a `manageData` operation in
+ * their account-creation (or first) transaction that sets this key to the inviter's address.
+ * This is verifiable on-chain via GET /accounts/{referred} → .data["referral"].
+ */
+export const REFERRAL_MARKER_KEY = 'referral';
+
+/**
+ * Decode a Horizon account data-entry value (base64) to its UTF-8 string.
+ * Returns null if the input is empty, not valid base64, or decodes to an empty string.
+ * Deliberately kept free of stellar-sdk imports so it stays unit-testable without mocks.
+ */
+export function decodeDataEntry(base64Value: string): string | null {
+  if (!base64Value) return null;
+  try {
+    const s = Buffer.from(base64Value, 'base64').toString('utf8');
+    return s.length > 0 ? s : null;
+  } catch {
+    return null;
+  }
+}
 /** Vouch-back threshold: how many distinct people you must have vouched for to earn it. */
 export const VOUCH_BACK_MIN = 3;
 export interface AttestClaim {
