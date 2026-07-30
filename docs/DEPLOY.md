@@ -1,0 +1,185 @@
+# Deploy your own (Stellar testnet)
+
+Step-by-step for standing up a fresh alvinmunk instance on **Stellar testnet**: generate keys → deploy contracts → wire `.env.local` → run or host the web app.
+
+For mainnet cutover, see [`DEPLOY_MAINNET.md`](./DEPLOY_MAINNET.md).
+
+**Acceptance check:** you should be able to follow this doc alone (plus the linked files it points at) and get a working testnet instance.
+
+---
+
+## Prerequisites
+
+| Tool | Why |
+| --- | --- |
+| **Node ≥ 20** + **pnpm 9** | Web app (`corepack enable && corepack prepare pnpm@9 --activate`) |
+| **Rust via rustup** + `wasm32v1-none` | Soroban contract builds (repo pins the channel in `contracts/rust-toolchain.toml`) |
+| **Stellar CLI** (`stellar`) | Keygen, deploy, invoke — `brew install stellar-cli` or `cargo install --locked stellar-cli` |
+
+```bash
+# Rust: use rustup (not a bare Homebrew rustc). From the repo root:
+cd contracts && rustup show   # installs the pinned channel from rust-toolchain.toml
+rustup target add wasm32v1-none
+cd ..
+```
+
+If `stellar contract build` says `can't find crate for core` / `wasm32v1-none may not be installed`, your PATH is likely preferring Homebrew `cargo`/`rustc` over rustup — put the rustup toolchain bins first, or run builds from a shell where `which rustc` points at rustup.
+
+Clone the repo and install JS deps once:
+
+```bash
+git clone https://github.com/mericcintosun/alvinmunk.git
+cd alvinmunk
+pnpm install
+```
+
+---
+
+## 1. Generate funded testnet keys
+
+You need two identities: an **admin** (deploys + initializes contracts) and an **attester** (allowlisted on-chain; its secret later powers `/api/attest` if you enable quests).
+
+```bash
+stellar keys generate --fund admin --network testnet
+stellar keys generate --fund attester --network testnet
+
+# Confirm addresses (G…)
+stellar keys address admin
+stellar keys address attester
+```
+
+`--fund` hits Friendbot so each account has testnet XLM for deploy fees. If Friendbot flakes, retry: `stellar keys fund admin --network testnet`.
+
+---
+
+## 2. Pick a testnet USDC SAC
+
+Rewards tips/claims move USDC through a Stellar Asset Contract (SAC). On testnet you can reuse the project's issued test USDC:
+
+```text
+CAKT2EK2SFGNXTXVSYZLZXA5YB5QPVHLTVUMRHLJTF5RFFAFMIRNPZT2
+```
+
+Or wrap/issue your own SAC and pass that id instead. Without a real SAC id, `deploy-testnet.sh` will still print placeholders — but tips, claims, and the faucet will not work until you set a valid one.
+
+---
+
+## 3. Deploy contracts (`scripts/deploy-testnet.sh`)
+
+This builds the Wasm, deploys **reputation**, **quest_registry**, and **rewards**, initializes them, and wires attesters (quest contract + your off-chain attester address).
+
+```bash
+USDC_SAC=CAKT2EK2SFGNXTXVSYZLZXA5YB5QPVHLTVUMRHLJTF5RFFAFMIRNPZT2 \
+  ADMIN=admin \
+  ATTESTER=attester \
+  ./scripts/deploy-testnet.sh
+```
+
+On success the script prints something like:
+
+```text
+✅ Deployed. Put these in apps/web/.env.local:
+
+NEXT_PUBLIC_REPUTATION_CONTRACT_ID=C…
+NEXT_PUBLIC_QUEST_REGISTRY_CONTRACT_ID=C…
+NEXT_PUBLIC_REWARDS_CONTRACT_ID=C…
+NEXT_PUBLIC_USDC_SAC_ID=CAKT2EK2…
+```
+
+Copy those four lines — you will paste them in the next step.
+
+### Optional: registry + gate (handles + reputation gates)
+
+`deploy-testnet.sh` covers the core three contracts. Public `/u/<handle>` profiles and reputation gates need **registry** and **gate** as well. The maintainer one-shot that deploys all five (and seeds quests/rewards) is `scripts/redeploy-all.sh` — read it before running (it hard-codes an admin identity and attester pubkey). You can also deploy those two Wasm files manually with `stellar contract deploy` / `init` the same way the script does, then add:
+
+```bash
+NEXT_PUBLIC_REGISTRY_CONTRACT_ID=C…
+NEXT_PUBLIC_GATE_CONTRACT_ID=C…
+```
+
+Without them: vouch / tip / basic dashboard still work against the three contracts from step 3; `@handle` resolution and gate unlocks do not.
+
+---
+
+## 4. Wire `apps/web/.env.local`
+
+```bash
+cp .env.example apps/web/.env.local
+```
+
+Paste the printed `NEXT_PUBLIC_*` contract ids from step 3 into that file. Keep the testnet defaults already in the template:
+
+```bash
+NEXT_PUBLIC_STELLAR_NETWORK=testnet
+NEXT_PUBLIC_RPC_URL=https://soroban-testnet.stellar.org
+NEXT_PUBLIC_NETWORK_PASSPHRASE=Test SDF Network ; September 2015
+NEXT_PUBLIC_HORIZON_URL=https://horizon-testnet.stellar.org
+```
+
+**Never commit `.env.local`** — it is gitignored. Full variable list: [`.env.example`](../.env.example).
+
+### Optional server secrets (and what degrades without them)
+
+These are **server-only**. Leave them unset for a minimal read/write demo; set them when you want the matching feature.
+
+| Env var | How to get it | If unset |
+| --- | --- | --- |
+| `ATTESTER_SECRET_KEY` | `stellar keys secret attester` (must be the same identity allowlisted in step 3) | `/api/attest` returns 500. Users cannot complete attester-verified quests / earn **Earned XP**. Social vouch mint/claim still works. |
+| `USDC_ISSUER_SECRET_KEY` | Secret of the classic-asset **issuer** behind your testnet USDC SAC (TESTNET ONLY — never on mainnet) | `/api/faucet` returns 500. Users cannot mint test USDC from the in-app faucet. Tips/claims still work if wallets already hold USDC. |
+| `NEXT_PUBLIC_PASSKEY_WALLET_WASM_HASH` + `PASSKEY_RELAYER_URL` + `PASSKEY_RELAYER_API_KEY` | WASM hash from [`docs/PASSKEY_HANDOFF.md`](./PASSKEY_HANDOFF.md); free relayer key via `curl https://channels.openzeppelin.com/testnet/gen` | App falls back to the **dev wallet** (ephemeral Friendbot-funded `G…` keypair). Onboarding, vouch, tip still work on testnet. Passkey / Face ID onboarding and fee-sponsored `/api/passkey-send` do not. Dev wallet is hard-disabled on mainnet. |
+
+Minimal “it runs” config = network vars + the three contract ids + USDC SAC. Everything else is progressive enhancement.
+
+Quick sanity check after the app is up: `GET /api/health` reports `attesterConfigured` / `faucetConfigured` (booleans only — never the secrets) and whether RPC + rewards id look healthy.
+
+---
+
+## 5. Run the web app locally
+
+```bash
+pnpm dev
+# → http://localhost:3000 (turbo → next dev in apps/web)
+```
+
+Smoke checklist:
+
+1. Open the app — onboarding should create/fund a testnet wallet (dev wallet if passkey unset).
+2. Hit `/api/health` — expect `"ok": true` and your contract ids present.
+3. Mint or claim a vouch against your reputation contract (explorer link on success).
+4. If you set `ATTESTER_SECRET_KEY`, run a quest verify; if you set the faucet issuer, request test USDC.
+
+---
+
+## 6. Deploy the web app (Vercel)
+
+The app is a Next.js app under `apps/web` with serverless API routes (`/api/attest`, `/api/faucet`, `/api/passkey-send`, `/api/health`). There is no separate always-on backend.
+
+1. Import the GitHub repo into [Vercel](https://vercel.com).
+2. Set **Root Directory** to `apps/web`.
+3. Use a monorepo-friendly install if the lockfile/pnpm version warns, e.g. `pnpm install --no-frozen-lockfile`.
+4. In **Project → Settings → Environment Variables**, add every `NEXT_PUBLIC_*` you put in `.env.local`, plus any optional secrets you want live (`ATTESTER_SECRET_KEY`, `USDC_ISSUER_SECRET_KEY`, `PASSKEY_RELAYER_*`). Mark secrets as sensitive / not exposed to the client.
+5. Deploy (Git push or `vercel --prod` from a linked project).
+
+Confirm: open `https://<your-deploy>/api/health` and walk through onboarding on the production URL.
+
+---
+
+## Troubleshooting
+
+| Symptom | Likely cause |
+| --- | --- |
+| `deploy-testnet.sh` fails on build | Missing Rust/`stellar` CLI, or wrong Wasm target — CLI 25+ writes to `contracts/target/wasm32v1-none/release/` |
+| `init` / `add_attester` fails | Admin not funded, or identity name mismatch (`ADMIN=` / `ATTESTER=` must match `stellar keys` names) |
+| Health returns 503 | RPC unreachable or `NEXT_PUBLIC_REWARDS_CONTRACT_ID` empty |
+| Quest verify 500 | Missing `ATTESTER_SECRET_KEY`, or secret is not the allowlisted attester |
+| Faucet 500 | Missing `USDC_ISSUER_SECRET_KEY` or wrong SAC id |
+| Passkey onboarding errors | WASM hash set but relayer URL/key missing — either set both, or unset the WASM hash to use the dev wallet |
+
+---
+
+## Related docs
+
+- [`.env.example`](../.env.example) — full env template
+- [`scripts/deploy-testnet.sh`](../scripts/deploy-testnet.sh) — contract deploy + wire
+- [`docs/PASSKEY_HANDOFF.md`](./PASSKEY_HANDOFF.md) — passkey / relayer details
+- [`docs/DEPLOY_MAINNET.md`](./DEPLOY_MAINNET.md) — mainnet gates (Black belt)
