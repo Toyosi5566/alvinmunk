@@ -63,7 +63,7 @@ describe('sendXlm status mapping', () => {
       .mockResolvedValueOnce({ status: 'NOT_FOUND' })
       .mockResolvedValueOnce({ status: 'SUCCESS' });
 
-    const promise = sendXlm(makeWallet(), 'GBOB', '10');
+    const promise = sendXlm(makeWallet(), 'GB72PZXNOU6DJ2BXZDITS24A5JCN3CEUNTKIX5ESZDXAY2R5HO7YZ3H3', '10');
     await vi.runAllTimersAsync();
     await expect(promise).resolves.toEqual({ hash: 'HASH1', status: 'SUCCESS' });
   });
@@ -72,21 +72,21 @@ describe('sendXlm status mapping', () => {
     sendTransactionMock.mockResolvedValue({ status: 'PENDING', hash: 'HASH2' });
     getTransactionMock.mockResolvedValueOnce({ status: 'FAILED' });
 
-    const promise = sendXlm(makeWallet(), 'GBOB', '10');
+    const promise = sendXlm(makeWallet(), 'GB72PZXNOU6DJ2BXZDITS24A5JCN3CEUNTKIX5ESZDXAY2R5HO7YZ3H3', '10');
     await vi.runAllTimersAsync();
     await expect(promise).resolves.toEqual({ hash: 'HASH2', status: 'FAILED' });
   });
 
   it('throws when sendTransaction itself errors', async () => {
     sendTransactionMock.mockResolvedValue({ status: 'ERROR', errorResult: { foo: 'bar' } });
-    await expect(sendXlm(makeWallet(), 'GBOB', '10')).rejects.toThrow('payment rejected');
+    await expect(sendXlm(makeWallet(), 'GB72PZXNOU6DJ2BXZDITS24A5JCN3CEUNTKIX5ESZDXAY2R5HO7YZ3H3', '10')).rejects.toThrow('payment rejected');
   });
 
   it('falls back to PENDING when confirmation never resolves within the poll budget', async () => {
     sendTransactionMock.mockResolvedValue({ status: 'PENDING', hash: 'HASH3' });
     getTransactionMock.mockResolvedValue({ status: 'NOT_FOUND' });
 
-    const promise = sendXlm(makeWallet(), 'GBOB', '10');
+    const promise = sendXlm(makeWallet(), 'GB72PZXNOU6DJ2BXZDITS24A5JCN3CEUNTKIX5ESZDXAY2R5HO7YZ3H3', '10');
     await vi.runAllTimersAsync();
     await expect(promise).resolves.toEqual({ hash: 'HASH3', status: 'PENDING' });
     expect(getTransactionMock).toHaveBeenCalledTimes(15);

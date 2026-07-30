@@ -156,12 +156,18 @@ export async function connectFreighter(): Promise<Wallet> {
         address,
         networkPassphrase,
       });
-      if ('error' in res && res.error) throw new Error(String(res.error));
+      if ('error' in res && res.error) {
+        const e = res.error as string | { message?: string };
+        throw new Error(typeof e === 'string' ? e : (e?.message ?? JSON.stringify(e)));
+      }
       return res.signedTxXdr;
     },
     signMessage: async (message: string) => {
       const res = await freighterSignMessage(message, { address, networkPassphrase });
-      if ('error' in res && res.error) throw new Error(String(res.error));
+      if ('error' in res && res.error) {
+        const e = res.error as string | { message?: string };
+        throw new Error(typeof e === 'string' ? e : (e?.message ?? JSON.stringify(e)));
+      }
       const { signedMessage } = res;
       // Freighter returns a base64 string in current versions; normalize defensively in
       // case a wallet build returns raw bytes instead (same pattern as wallet-kit.ts's

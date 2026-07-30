@@ -20,6 +20,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getSubscriptionsForWallet, removeSubscription } from '@/lib/push-store';
 
 // web-push is a Node.js library — only runs in the Node.js runtime.
 // We import it dynamically to avoid edge-runtime issues.
@@ -69,7 +70,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
 
   // Fetch all subscriptions for this voucher address.
-  const { getSubscriptionsForWallet } = await import('../subscribe/route');
   const subs = await getSubscriptionsForWallet(voucherAddress);
 
   // Filter to subscriptions that care about this specific vouchId.
@@ -100,20 +100,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         // 410 Gone or 404: the subscription has been revoked — prune it.
         const status = (err as { statusCode?: number })?.statusCode;
         if (status === 410 || status === 404) {
-          // Fire-and-forget cleanup — we import the same route module so the
-          // in-memory / KV state stays consistent.
-          try {
-            const { DELETE } = await import('../subscribe/route');
-            await DELETE(
-              new NextRequest('http://localhost/api/push/subscribe', {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ endpoint: stored.endpoint }),
-              }),
-            );
-          } catch {
-            /* best-effort */
-          }
+          // Fire-and-forget cleanup — prune the revoked endpoint from the shared store.
+          await removeSubscription(stored.endpoint).catch(() => {});
         } else {
           console.warn('[push/notify] sendNotification failed:', err);
         }
