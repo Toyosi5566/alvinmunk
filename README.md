@@ -199,6 +199,8 @@ Feedback is collected via the public [Google Form](https://forms.gle/kNXR3zmZhGh
 
 ## Architecture (and the "no standing backend" decision)
 
+**[Jump to the diagram ↓](#system-diagram)** — five contracts, their cross-calls, the serverless attester, and the RPC-direct read path in one picture.
+
 ```
 alvinmunk/                # project root (the repo)
 ├─ belts/                 # strategy + roadmaps (00-strategy + 08-anti-sybil are source of truth)
@@ -221,6 +223,59 @@ alvinmunk/                # project root (the repo)
 - **XP/badges = account-keyed contract storage**, non-transferable by the *absence* of a transfer fn (SBT semantics) — no per-badge NFT minting.
 - **Oracle = allowlisted attesters with signed claims**, not a decentralized oracle.
 - **Canonical `att_set` event emitted from day one** — append-only and retroactively impossible. This keeps the "reputation primitive" SCF door open for ~free; the `get_attestation`/`get_score`/`get_earned` read-views are pure adapters, never a second write path (`belts/00-strategy §4`).
+
+### System diagram
+
+```mermaid
+flowchart TD
+    subgraph Client["Browser"]
+        User(["User"])
+        Kit["Stellar Wallets Kit<br/>Freighter · xBull · Albedo · Rabet · LOBSTR · Hana<br/>+ passkey / dev wallet"]
+    end
+
+    subgraph Vercel["Single Vercel deploy — apps/web (Next.js 14)"]
+        Web["Frontend<br/>leaderboard · /wallet · /u/handle · /stats"]
+        Attester["/api/attest (serverless)<br/>the ONLY server-side piece — holds the attester key"]
+    end
+
+    subgraph Chain["Soroban contracts — Stellar testnet"]
+        Reputation["reputation<br/>Social XP (vouch) · Earned XP (quest)<br/>att_set / get_score / get_earned"]
+        QuestRegistry["quest_registry<br/>attester signature check + replay guard"]
+        Rewards["rewards<br/>USDC tip · Earned-gated claim<br/>treasury circuit breaker"]
+        Registry["registry<br/>handle ↔ address"]
+        Gate["gate<br/>reputation-gated access"]
+        USDC[("USDC (SAC)")]
+    end
+
+    RPC[("Soroban RPC<br/>getEvents")]
+
+    User --> Kit --> Web
+
+    Web -->|"signed tx"| Reputation
+    Web -->|"signed tx"| QuestRegistry
+    Web -->|"signed tx"| Rewards
+    Web -->|"signed tx"| Registry
+    Web -->|"signed tx"| Gate
+
+    Web -->|"1 request quest proof"| Attester
+    Attester -->|"2 signed attestation"| Web
+    Web -->|"3 award_quest(sig)"| QuestRegistry
+    QuestRegistry -->|"cross-call award_xp"| Reputation
+
+    Rewards -->|"cross-read get_earned"| Reputation
+    Rewards -->|"transfer"| USDC
+    Gate -->|"cross-read get_score / get_earned"| Reputation
+
+    Reputation -.->|"events"| RPC
+    QuestRegistry -.->|"events"| RPC
+    Rewards -.->|"events"| RPC
+    Registry -.->|"events"| RPC
+    Gate -.->|"events"| RPC
+
+    RPC -->|"poll every 5s — no indexer, no standing backend"| Web
+```
+
+The frontend never talks to a database or a custom API server for reads — the leaderboard, activity feed, and `/stats` poll Soroban RPC's `getEvents` directly. The only write-side server code is `/api/attest`, which signs quest claims with the allowlisted attester key and ships as part of the same Vercel deploy (steps 1–3 above); everything else is a wallet-signed transaction straight to a contract.
 
 ---
 
