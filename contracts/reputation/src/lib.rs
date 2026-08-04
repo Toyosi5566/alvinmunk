@@ -179,7 +179,7 @@ impl ReputationContract {
         if used >= MAX_VOUCH_PER_DAY {
             panic_with_error!(&env, Error::DailyCapReached);
         }
-        env.storage().temporary().set(&dkey, &(used + 1));
+        env.storage().temporary().set(&dkey, &(used.saturating_add(1)));
         env.storage()
             .temporary()
             .extend_ttl(&dkey, BUMP_THRESHOLD, BUMP_THRESHOLD * 2);
@@ -200,8 +200,8 @@ impl ReputationContract {
             .storage()
             .instance()
             .get(&DataKey::VouchSeq)
-            .unwrap_or(0)
-            + 1;
+            .unwrap_or(0u64)
+            .saturating_add(1);
         env.storage().instance().set(&DataKey::VouchSeq, &id);
 
         let vouch = Vouch {
@@ -311,7 +311,7 @@ impl ReputationContract {
         if vouch.slashed {
             return; // already slashed — idempotent
         }
-        if env.ledger().timestamp() <= vouch.created + VOUCH_TTL_SECS {
+        if env.ledger().timestamp() <= vouch.created.saturating_add(VOUCH_TTL_SECS) {
             panic_with_error!(&env, Error::NotExpired);
         }
         vouch.slashed = true;
